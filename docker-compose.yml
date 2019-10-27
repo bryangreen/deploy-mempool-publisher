@@ -1,13 +1,10 @@
 version: '3.7'
 services:
-  service:
+  app:
     build: .
+    container_name: publisherapp
     ports:
       - "10902:10902"
-    expose:
-      - "6382"
   db:
     image: "redis:latest"
-    ports:
-      - "6382:6379"
-
+    container_name: publisherdb

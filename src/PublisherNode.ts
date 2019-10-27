@@ -23,7 +23,7 @@ export default class PublisherNode {
   readonly redisStore: RedisStore;
 
   constructor(public endpoint: string) {
-    this.redisStore = new RedisStore(6382);
+    this.redisStore = new RedisStore({ "port": 6379, host: "publisherdb" });
 
     // pull this from a config file at some point
     this.broadcastPort = 10902;
