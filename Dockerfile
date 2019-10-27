@@ -9,15 +9,10 @@ RUN mkdir -p /home/node/app/node_modules &&\
 
 WORKDIR /home/node/app
 
-# COPY package.json ./
 USER node
-
-# RUN npm install --global tsc typescript
-
 COPY --chown=node:node . .
 
 RUN yarn &&\
  tsc
-
 
 CMD node /home/node/app/dist/index.js

@@ -16,7 +16,7 @@ interface ParityResponse {
 }
 
 export default class PublisherNode {
-  readonly verboseLogs = false;
+  readonly verboseLogs = true;
 
   readonly broadcastPort: number;
 
@@ -29,10 +29,6 @@ export default class PublisherNode {
     this.broadcastPort = 10902;
   }
 
-  static log(statement: string) {
-    console.log(chalk.bgYellow.cyan.bold(' PUB ') + statement);
-  }
-
   /**
    *  Saves pending transactions found on parity client node
    */
@@ -43,11 +39,12 @@ export default class PublisherNode {
 
     console.log(`web socket${ws}`);
     ws.on('open', () => {
-      console.log('open');
+      console.log(`listen -> WS opening to ${this.endpoint}`);
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
     ws.on('connection', (ws2, req) => {
+      console.log(`listen -> WS connected.`);
       const ip = req.connection.remoteAddress;
     });
 
@@ -58,12 +55,15 @@ export default class PublisherNode {
         if (parityResponse.hasOwnProperty('method')) {
           const pendingTx = (<ParityResponse>parityResponse).params;
           if (pendingTx.result.length > 0) {
-            PublisherNode.log(`Saving parity data(size=${data.length}) for total tx=${pendingTx.result.length}`);
+            console.log(`listen -> saving parity_pendingTransactions data(size=${data.length}) for total tx=${pendingTx.result.length}`);
+
             pendingTx.result.forEach((transaction) => {
               // Save the pending transaction
               store.save(transaction);
+              // if(this.verboseLogs) {
+              //   console.log(transaction);
+              // }
             });
-            // console.log(parityResponse);
           }
         }
       }
@@ -75,26 +75,26 @@ export default class PublisherNode {
    */
   emit() {
     const store = new TxStore(this.redisStore);
-    const httpServer = http.createServer().listen(this.broadcastPort, '127.0.0.1');
+    const httpServer = http.createServer().listen(this.broadcastPort, '0.0.0.0');
 
     const ioListen = socketIo(httpServer, {
-      path: '/',
+      path: '/socket.io',
     });
-    PublisherNode.log('Emitting stored tx');
+    console.log('emit -> initing stored tx');
 
     ioListen.on('connection', (socket: Socket) => {
-      PublisherNode.log('WS connection success!');
+      console.log('emit -> WS connection success!');
 
       store.load()
         .subscribe({
           next(value: string) {
             socket.send(value);
-            if (false) {
-              PublisherNode.log(`message sent: ${(<PendingTransaction>JSON.parse(value)).hash}`);
+            if (true) {
+              console.log(`emit -> message sent: ${(<PendingTransaction>JSON.parse(value)).hash}`);
             }
           },
           complete() {
-            PublisherNode.log('Closed emit subscription');
+            console.log('emit -> closed subscription');
           },
         });
     });
