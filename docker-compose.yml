@@ -1,10 +1,11 @@
-version: '1'
+version: '3.7'
 services:
-  publisher:
+  service:
     build: .
     ports:
-      - "6382:6382"
       - "10902:10902"
+    expose:
+      - "6382"
   db:
     image: "redis:latest"
     ports:
