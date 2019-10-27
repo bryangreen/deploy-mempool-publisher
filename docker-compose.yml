@@ -1,0 +1,12 @@
+version: '1'
+services:
+  publisher:
+    build: .
+    ports:
+      - "6382:6382"
+      - "10902:10902"
+  db:
+    image: "redis:latest"
+    ports:
+      - "6382:6379"
+

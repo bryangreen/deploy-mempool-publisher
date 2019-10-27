@@ -1,0 +1,37 @@
+{
+  "name": "mempool-publisher",
+  "version": "1.0.0",
+  "description": "RADAR DEPLOY WT: Mempool Publisher",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bryangreen/deploy-mempool-publisher.git"
+},
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bryangreen/deploy-mempool-publisher/issues"
+  },
+  "homepage": "https://github.com/bryangreen/deploy-mempool-publisher#readme",
+  "devDependencies": {
+    "@types/socket.io": "^2.1.4",
+    "@types/socket.io-client": "^1.4.32",
+    "@types/ws": "^6.0.3",
+    "rxjs": "^6.5.3",
+    "tslint": "^5.20.0",
+    "typescript": "^3.6.4"
+  },
+  "dependencies": {
+    "@types/ioredis": "^4.0.18",
+    "chalk": "^2.4.2",
+    "config-yml": "^0.10.3",
+    "ioredis": "^4.14.1",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0",
+    "web3": "^2.0.0-alpha.1",
+    "ws": "^7.2.0"
+  }
+}
