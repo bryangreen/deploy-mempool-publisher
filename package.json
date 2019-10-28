@@ -26,7 +26,6 @@
     "typescript": "^3.6.4"
   },
   "dependencies": {
-    "chalk": "^2.4.2",
     "config-yml": "^0.10.3",
     "ioredis": "^4.14.1",
     "socket.io": "^2.3.0",

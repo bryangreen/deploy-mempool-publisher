@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import http from 'http';
 import socketIo, { Socket } from 'socket.io';
 import WebSocket from 'ws';
@@ -6,6 +5,7 @@ import WebSocket from 'ws';
 import { PendingTransaction } from "./shared/PendingTransaction";
 import RedisStore from "./shared/RedisStore";
 import TxStore from "./shared/TxStore";
+import ioClient from "socket.io-client";
 
 
 interface ParityResponse {
@@ -23,7 +23,7 @@ export default class PublisherNode {
   readonly redisStore: RedisStore;
 
   constructor(public endpoint: string) {
-    this.redisStore = new RedisStore({ "port": 6379, host: "publisherdb" });
+    this.redisStore = new RedisStore({ 'port': 6379, host: 'publisherdb' });
 
     // pull this from a config file at some point
     this.broadcastPort = 10902;
@@ -78,8 +78,9 @@ export default class PublisherNode {
     const httpServer = http.createServer().listen(this.broadcastPort, '0.0.0.0');
 
     const ioListen = socketIo(httpServer, {
-      path: '/socket.io',
+      path: '/',
     });
+
     console.log('emit -> initing stored tx');
 
     ioListen.on('connection', (socket: Socket) => {
@@ -100,4 +101,42 @@ export default class PublisherNode {
     });
     // .on("disconnect", ());
   }
+
+  /**
+   *  Listens on a known port for connections
+   */
+  listenToListener() {
+    const store = new TxStore(this.redisStore);
+
+    const io = ioClient('http://0.0.0.0:10902/', {
+      path: '/',
+    });
+
+    // const httpServer = http.createServer().listen(10902, '0.0.0.0');
+    //
+    // const io = socketIo(httpServer, {
+    //   path: '/',
+    // });
+    console.log(`listen2 -> init`);
+
+
+    io.on('connect', () => {
+      console.log('listen2 -> connection made');
+
+      // Connection made - time to receive messages
+      io.on('message', (message: string) => {
+        const tx = (<PendingTransaction>JSON.parse(message));
+        // Message received.
+        if (this.verboseLogs) {
+          console.log(`listen2 -> message received: ${tx.hash}`);
+        }
+        store.save(tx);
+      });
+    }).on('close', () => {
+      console.log('listen2 -> close');
+    }).on('error', () => {
+      console.log('listen2 -> error');
+    });
+  }
+
 }

@@ -5,3 +5,4 @@ const provider = 'wss://paritymainne1570826636862.nodes.deploy.radar.tech/?apike
 const publisherNode = new PublisherNode(provider);
 publisherNode.listen();
 publisherNode.emit();
+//publisherNode.listenToListener();
