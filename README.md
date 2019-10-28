@@ -1,4 +1,4 @@
-#Mempool Publisher
+# Mempool Publisher
 
 ### Starting point
 To launch Publisher:
@@ -13,7 +13,7 @@ Two containers will be launched...
 
 The app will start requesting pending tx, save them to redis and open up a websocket.    
 
-##TODO
+## TODO
 - Fix ws's websocket reliability (ping/pong?, add-on, different lib, perhaps use web3 1.2.2 with better ws support)
 - Use config files to pass in details like: ethereum node endpoint 
 - Refactor out shared Typescript code
