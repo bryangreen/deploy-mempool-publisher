@@ -1,1 +1,6 @@
-# deploy-mempool-publisher
+Mempool Publisher
+
+To launch
+
+docker-compose up --build
+

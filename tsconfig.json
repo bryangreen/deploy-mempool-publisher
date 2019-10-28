@@ -74,10 +74,5 @@
   },
   "includes": [
     "./src"
-  ],
-  "references": [
-    {
-      "@mempool/mempool-shared": "./mempool/mempool-shared/dist"
-    }
   ]
 }

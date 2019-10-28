@@ -7,7 +7,6 @@ import RedisStore from "./shared/RedisStore";
 import TxStore from "./shared/TxStore";
 import ioClient from "socket.io-client";
 
-
 interface ParityResponse {
   jsonrpc: string;
   method: string;
@@ -16,13 +15,15 @@ interface ParityResponse {
 }
 
 export default class PublisherNode {
+  // TODO Add log levels here and control via configuration file.
   readonly verboseLogs = true;
 
-  readonly broadcastPort: number;
+  // TODO Add this to a configuration file so this can be passed in
+  readonly broadcastPort = 10902;
 
-  readonly redisStore: RedisStore;
+  redisStore: RedisStore;
 
-  constructor(public endpoint: string) {
+  constructor(public parityEndpoint: string) {
     this.redisStore = new RedisStore({ 'port': 6379, host: 'publisherdb' });
 
     // pull this from a config file at some point
@@ -34,12 +35,12 @@ export default class PublisherNode {
    */
   listen() {
     const store = new TxStore(this.redisStore);
-
-    const ws = new WebSocket(this.endpoint);
+    const ws = new WebSocket(this.parityEndpoint);
 
     console.log(`web socket${ws}`);
     ws.on('open', () => {
-      console.log(`listen -> WS opening to ${this.endpoint}`);
+      console.log(`listen -> WS opening to ${this.parityEndpoint}`);
+      // TODO try this again with a web3 requst
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
@@ -58,7 +59,7 @@ export default class PublisherNode {
             console.log(`listen -> saving parity_pendingTransactions data(size=${data.length}) for total tx=${pendingTx.result.length}`);
 
             pendingTx.result.forEach((transaction) => {
-              // Save the pending transaction
+              // Save the pending transaction in the store
               store.save(transaction);
               // if(this.verboseLogs) {
               //   console.log(transaction);
@@ -71,10 +72,11 @@ export default class PublisherNode {
   }
 
   /**
-   *  Emits stored pending transactions
+   *  Emits stored pending transactions from the datastore to a websocket
    */
   emit() {
     const store = new TxStore(this.redisStore);
+    // TODO pass in the hostname from a configuration file?
     const httpServer = http.createServer().listen(this.broadcastPort, '0.0.0.0');
 
     const ioListen = socketIo(httpServer, {
@@ -84,7 +86,7 @@ export default class PublisherNode {
     console.log('emit -> initing stored tx');
 
     ioListen.on('connection', (socket: Socket) => {
-      console.log('emit -> WS connection success!');
+      console.log('emit -> ws connection success!');
 
       store.load()
         .subscribe({
@@ -95,11 +97,14 @@ export default class PublisherNode {
             }
           },
           complete() {
+            // The subscription should never finish.
             console.log('emit -> closed subscription');
           },
         });
     });
+    // TODO gracefully and properly handle disconnects from redis
     // .on("disconnect", ());
+
   }
 
   /**
@@ -136,6 +141,7 @@ export default class PublisherNode {
       console.log('listen2 -> close');
     }).on('error', () => {
       console.log('listen2 -> error');
+
     });
   }
 
