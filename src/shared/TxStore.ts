@@ -1,25 +1,30 @@
 import ioredis from 'ioredis';
-import { Readable } from "stream";
-import { Observable, Subscriber } from "rxjs";
+import { Readable } from 'stream';
+import { Observable, Subscriber } from 'rxjs';
 
-import RedisConnection from "./RedisConnection";
-import { IPendingTransaction } from "./IPendingTransaction";
+import RedisConnection from './RedisConnection';
+import { IPendingTransaction } from './IPendingTransaction';
 
 export default class TxStore {
-  static keyPrefix = "pendingTx:";
+  static keyPrefix = 'pendingTx:';
 
   readonly verboseLogs = false;
 
   redis: ioredis.Redis;
 
-  constructor(redisStore: RedisConnection) {
+  constructor(redisStore: RedisConnection, deleteStreamedKeys = false) {
     this.redis = redisStore.redis;
   }
 
   log(statement: string) {
-    console.log(`TxStore: ` + statement);
+    console.log(`TxStore: ${statement}`);
   }
 
+  /**
+   * Save keys to redis in the form 'key prefix' + tx hash
+   * The value will be a JSON string of the transaction details
+   * @param transaction
+   */
   public save(transaction: IPendingTransaction) {
     this.redis.set(TxStore.keyPrefix + transaction.hash, JSON.stringify(transaction))
       .then(result => {
@@ -39,6 +44,12 @@ export default class TxStore {
     });
   }
 
+  /**
+   * Stream out keys from the redis database
+   *
+   * If the pub/sub model could dedup keys then a subscription to redis would work...
+   * @param subscriber
+   */
   createDataStream(subscriber: Subscriber<string>) {
     let stream = this.getKeyStream();
 
@@ -49,6 +60,9 @@ export default class TxStore {
     });
   }
 
+  /**
+   * Stream all keys that match
+   */
   getKeyStream() {
     return this.redis.scanStream({
       match: TxStore.keyPrefix + "*"
@@ -57,7 +71,9 @@ export default class TxStore {
 
   attachDataEvent(subscriber: Subscriber<string>, stream: Readable) {
     stream.on("data", (keys: KeyType[]) => {
-      //this.log("Starting scan for matching keys");
+      if (this.verboseLogs) {
+        this.log("Starting scan for matching keys");
+      }
       stream.pause();
 
       if (keys.length > 0) {
@@ -65,24 +81,17 @@ export default class TxStore {
         keys.forEach(key => {
           this.redis.get(key).then(value => {
             if (typeof value === "string") {
+              subscriber.next(value);
+
               if (this.verboseLogs) {
                 this.log(`subscribe post ${value}`);
               }
-              subscriber.next(value);
             }
           });
         });
-
-        const pipeline = this.redis.pipeline();
-        keys.forEach(key => {
-          if (this.verboseLogs) {
-            //this.log(`deleting key ${key}`);
-          }
-          // pipeline.del(key);
-        });
-
-        // handle return here
-        pipeline.exec();
+        if (this.deleteStreamedKeys) {
+          this.deleteStreamedKeys(keys);
+        }
       }
       stream.resume();
     }).on("end", () => {
@@ -95,4 +104,17 @@ export default class TxStore {
 
   }
 
+  private deleteStreamedKeys(keys: KeyType[]) {
+
+    const pipeline = this.redis.pipeline();
+    keys.forEach(key => {
+      if (this.verboseLogs) {
+        this.log(`deleting key ${key}`);
+      }
+       pipeline.del(key);
+    });
+
+    // handle return here
+    pipeline.exec();
+  }
 }

@@ -17,9 +17,8 @@ export default class PublisherNode {
   // TODO Add log levels here and control via configuration file.
   readonly verboseLogs = false;
 
-  // TODO Add this to a configuration file so this can be passed in
+  // TODO Add config fields to a configuration file so they can be tested for dev/stage/prod or multi-publisher
   readonly emitPort = 10902;
-
   readonly dataStorePort = 6379;
   readonly dataStoreHost = 'publisherdb';
 
@@ -31,6 +30,7 @@ export default class PublisherNode {
       host: this.dataStoreHost
     });
 
+    // TODO may want to turn deletion of keys back on or improve streaming logic to prevent dups
     this.txStore = new TxStore(redisConnection);
   }
 
@@ -43,12 +43,12 @@ export default class PublisherNode {
     ws.on('open', () => {
       console.log(`listen -> WS opening to ${this.parityEndpoint}`);
 
-      // TODO try this again with a web3 requst
+      // TODO try this again with a web3 abstract subscription (web3 2.x)
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
     ws.on('connection', (ws2, req) => {
-      console.log(`listen -> WS connected.`);
+      console.log(`listen -> WS connected to ${this.parityEndpoint}`);
 
     }).on('message', (data) => {
       if (typeof data === 'string') {
