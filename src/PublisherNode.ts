@@ -88,11 +88,11 @@ export default class PublisherNode {
     const ioListen = socketIo(httpServer, {
       path: '/',
     });
-    console.log(`publish -> serving tx via ws on port ${this.publishHost}:${this.publishPort}`);
+    console.log(`publish -> serving tx via ws at ${this.publishHost}:${this.publishPort}`);
 
     const that = this;
     ioListen.on('connection', (socket: Socket) => {
-      console.log('publish -> ws connection made');
+      console.log(`publish -> ws connection made from ${socket.conn.remoteAddress}`);
 
       this.txStore.load()
         .subscribe({
@@ -109,6 +109,8 @@ export default class PublisherNode {
             console.log('publish -> closed subscription');
           },
         });
+    }).on('disconnecting', (socket: Socket) => {
+      console.log(`publish -> ws disconnect from ${socket.conn.remoteAddress}`);
     });
   }
 

@@ -15,6 +15,7 @@ The app will start requesting pending tx, save them to redis and open up a webso
 
 ## TODO
 - Fix ws's websocket reliability (ping/pong?, add-on, different lib, perhaps use web3 1.2.2 with better ws support)
+- Handle if the deploy ws goes down
 - Use config files to pass in details like: ethereum node endpoint 
 - Refactor out shared Typescript code
 - Try using web3 again for pulling from parity node
