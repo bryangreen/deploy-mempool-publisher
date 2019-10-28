@@ -38,7 +38,7 @@ export default class PublisherNode {
   /**
    *  Saves pending transactions found on parity client node
    */
-  listen() {
+  pullTxs() {
     const ws = new WebSocket(this.parityEndpoint);
 
     ws.on('open', () => {
@@ -77,9 +77,10 @@ export default class PublisherNode {
   }
 
   /**
-   *  Emits stored pending transactions from the datastore to a websocket
+   *  Emits stored pending transactions from the datastore to a websocket.
+   *  This is a websocket server.
    */
-  emit() {
+  publishTxs() {
     // TODO pass in the hostname from a configuration file?
     const httpServer = http.createServer().listen(this.emitPort, '0.0.0.0');
 
@@ -106,45 +107,10 @@ export default class PublisherNode {
           },
         });
     });
-    // TODO gracefully and properly handle disconnects from redis
+
+    // TODO gracefully and properly handle disconnects from redis (auto-reconnect?)
     // .on("disconnect", ());
 
-  }
-
-  /**
-   *  Listens on a known port for connections
-   */
-  listenToListener() {
-    const io = ioClient('http://0.0.0.0:10902/', {
-      path: '/',
-    });
-
-    // const httpServer = http.createServer().listen(10902, '0.0.0.0');
-    //
-    // const io = socketIo(httpServer, {
-    //   path: '/',
-    // });
-    console.log(`listen2 -> init`);
-
-
-    io.on('connect', () => {
-      console.log('listen2 -> connection made');
-
-      // Connection made - time to receive messages
-      io.on('message', (message: string) => {
-        const tx = (<IPendingTransaction>JSON.parse(message));
-        // Message received.
-        if (this.verboseLogs) {
-          console.log(`listen2 -> message received: ${tx.hash}`);
-        }
-        this.txStore.save(tx);
-      });
-    }).on('close', () => {
-      console.log('listen2 -> close');
-    }).on('error', () => {
-      console.log('listen2 -> error');
-
-    });
   }
 
 }
