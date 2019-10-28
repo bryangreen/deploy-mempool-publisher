@@ -2,10 +2,9 @@ import http from 'http';
 import socketIo, { Socket } from 'socket.io';
 import WebSocket from 'ws';
 
-import { IPendingTransaction } from "./shared/IPendingTransaction";
-import RedisConnection from "./shared/RedisConnection";
-import TxStore from "./shared/TxStore";
-import ioClient from "socket.io-client";
+import { IPendingTransaction } from './shared/IPendingTransaction';
+import RedisConnection from './shared/RedisConnection';
+import TxStore from './shared/TxStore';
 
 interface ParityResponse {
   jsonrpc: string;
@@ -16,7 +15,7 @@ interface ParityResponse {
 
 export default class PublisherNode {
   // TODO Add log levels here and control via configuration file.
-  readonly verboseLogs = true;
+  readonly verboseLogs = false;
 
   // TODO Add this to a configuration file so this can be passed in
   readonly emitPort = 10902;
@@ -66,9 +65,9 @@ export default class PublisherNode {
               // Save the pending transaction in the store
               this.txStore.save(transaction);
 
-              // if(this.verboseLogs) {
-              //   console.log(transaction);
-              // }
+              if (this.verboseLogs) {
+                console.log(transaction);
+              }
             });
           }
         }
@@ -89,7 +88,7 @@ export default class PublisherNode {
     });
 
     console.log('emit -> initing stored tx');
-
+    const that = this;
     ioListen.on('connection', (socket: Socket) => {
       console.log('emit -> ws connection success!');
 
@@ -97,7 +96,7 @@ export default class PublisherNode {
         .subscribe({
           next(value: string) {
             socket.send(value);
-            if (true) {
+            if (that.verboseLogs) {
               console.log(`emit -> message sent: ${(<IPendingTransaction>JSON.parse(value)).hash}`);
             }
           },
