@@ -1,4 +1,4 @@
-export interface PendingTransaction {
+export interface IPendingTransaction {
   blockHash: string | null;
   blockNumber: number | null;
   chainId: number;

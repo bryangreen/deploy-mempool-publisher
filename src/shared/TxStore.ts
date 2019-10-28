@@ -2,16 +2,17 @@ import ioredis from 'ioredis';
 import { Readable } from "stream";
 import { Observable, Subscriber } from "rxjs";
 
-import RedisStore from "./RedisStore";
-import { PendingTransaction } from "./PendingTransaction";
+import RedisConnection from "./RedisConnection";
+import { IPendingTransaction } from "./IPendingTransaction";
 
-class TxStore {
-
+export default class TxStore {
   static keyPrefix = "pendingTx:";
-  readonly verboseLogs = false;
-  private redis: ioredis.Redis;
 
-  constructor(redisStore: RedisStore) {
+  readonly verboseLogs = false;
+
+  redis: ioredis.Redis;
+
+  constructor(redisStore: RedisConnection) {
     this.redis = redisStore.redis;
   }
 
@@ -19,7 +20,7 @@ class TxStore {
     console.log(`TxStore: ` + statement);
   }
 
-  public save(transaction: PendingTransaction) {
+  public save(transaction: IPendingTransaction) {
     this.redis.set(TxStore.keyPrefix + transaction.hash, JSON.stringify(transaction))
       .then(result => {
         // added
@@ -95,5 +96,3 @@ class TxStore {
   }
 
 }
-
-export default TxStore;

@@ -16,3 +16,5 @@ Two containers will be launched
 - Use config files to pass in details like: ethereum node endpoint 
 - Refactor out shared Typescript code
 - Try using web3 again for pulling from parity node
+
+

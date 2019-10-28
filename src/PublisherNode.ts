@@ -2,15 +2,15 @@ import http from 'http';
 import socketIo, { Socket } from 'socket.io';
 import WebSocket from 'ws';
 
-import { PendingTransaction } from "./shared/PendingTransaction";
-import RedisStore from "./shared/RedisStore";
+import { IPendingTransaction } from "./shared/IPendingTransaction";
+import RedisConnection from "./shared/RedisConnection";
 import TxStore from "./shared/TxStore";
 import ioClient from "socket.io-client";
 
 interface ParityResponse {
   jsonrpc: string;
   method: string;
-  params: { result: Array<PendingTransaction> };
+  params: { result: Array<IPendingTransaction> };
   subscription: string;
 }
 
@@ -19,22 +19,26 @@ export default class PublisherNode {
   readonly verboseLogs = true;
 
   // TODO Add this to a configuration file so this can be passed in
-  readonly broadcastPort = 10902;
+  readonly emitPort = 10902;
 
-  redisStore: RedisStore;
+  readonly dataStorePort = 6379;
+
+  redisConnection: RedisConnection;
+  txStore: TxStore;
 
   constructor(public parityEndpoint: string) {
-    this.redisStore = new RedisStore({ 'port': 6379, host: 'publisherdb' });
+    this.redisConnection = new RedisConnection({ 'port': this.dataStorePort, host: 'publisherdb' });
 
     // pull this from a config file at some point
-    this.broadcastPort = 10902;
+    this.emitPort = 10902;
+    const store = new TxStore(this.redisConnection);
   }
 
   /**
    *  Saves pending transactions found on parity client node
    */
   listen() {
-    const store = new TxStore(this.redisStore);
+
     const ws = new WebSocket(this.parityEndpoint);
 
     console.log(`web socket${ws}`);
@@ -75,9 +79,9 @@ export default class PublisherNode {
    *  Emits stored pending transactions from the datastore to a websocket
    */
   emit() {
-    const store = new TxStore(this.redisStore);
+    const store = new TxStore(this.redisConnection);
     // TODO pass in the hostname from a configuration file?
-    const httpServer = http.createServer().listen(this.broadcastPort, '0.0.0.0');
+    const httpServer = http.createServer().listen(this.emitPort, '0.0.0.0');
 
     const ioListen = socketIo(httpServer, {
       path: '/',
@@ -93,7 +97,7 @@ export default class PublisherNode {
           next(value: string) {
             socket.send(value);
             if (true) {
-              console.log(`emit -> message sent: ${(<PendingTransaction>JSON.parse(value)).hash}`);
+              console.log(`emit -> message sent: ${(<IPendingTransaction>JSON.parse(value)).hash}`);
             }
           },
           complete() {
@@ -111,7 +115,7 @@ export default class PublisherNode {
    *  Listens on a known port for connections
    */
   listenToListener() {
-    const store = new TxStore(this.redisStore);
+    const store = new TxStore(this.redisConnection);
 
     const io = ioClient('http://0.0.0.0:10902/', {
       path: '/',
@@ -130,7 +134,7 @@ export default class PublisherNode {
 
       // Connection made - time to receive messages
       io.on('message', (message: string) => {
-        const tx = (<PendingTransaction>JSON.parse(message));
+        const tx = (<IPendingTransaction>JSON.parse(message));
         // Message received.
         if (this.verboseLogs) {
           console.log(`listen2 -> message received: ${tx.hash}`);

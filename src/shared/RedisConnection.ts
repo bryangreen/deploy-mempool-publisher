@@ -1,12 +1,12 @@
-import ioredis from "ioredis";
+import ioRedis from "ioredis";
 
-export default class RedisStore {
+export default class RedisConnection {
 
-  redis: ioredis.Redis;
+  redis: ioRedis.Redis;
 
-  constructor(public options: ioredis.RedisOptions) {
+  constructor(public options: ioRedis.RedisOptions) {
+    this.redis = new ioRedis(options);
     console.log(`connecting to redis on port ${this.options.port}`);
-    this.redis = new ioredis(options);
 
     this.redis.on("error", error => {
       // TODO improve error handling
