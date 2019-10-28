@@ -16,6 +16,7 @@ interface IParityResponse {
 export default class PublisherNode {
   // TODO Add log levels here and control via configuration file.
   readonly verboseLogs = false;
+  readonly showStats = false;
 
   // TODO Add config fields to a configuration file so they can be tested for dev/stage/prod or multi-publisher
   readonly dataStoreHost = 'publisherdb'; // name of the docker redis container
@@ -71,7 +72,9 @@ export default class PublisherNode {
                 console.log(`extract -> received tx with hash=${transaction.hash}`);
               }
             });
-            console.log(`extract -> tx received ${this.txStore.txReceived}, tx saved ~${this.txStore.txSaved}`)
+            if(this.showStats) {
+              console.log(`extract -> tx received ${this.txStore.txReceived}, tx saved ~${this.txStore.txSaved}`)
+            }
           }
         }
       }
