@@ -22,49 +22,50 @@ export default class PublisherNode {
   readonly emitPort = 10902;
 
   readonly dataStorePort = 6379;
+  readonly dataStoreHost = 'publisherdb';
 
-  redisConnection: RedisConnection;
   txStore: TxStore;
 
   constructor(public parityEndpoint: string) {
-    this.redisConnection = new RedisConnection({ 'port': this.dataStorePort, host: 'publisherdb' });
+    const redisConnection = new RedisConnection({
+      port: this.dataStorePort,
+      host: this.dataStoreHost
+    });
 
-    // pull this from a config file at some point
-    this.emitPort = 10902;
-    const store = new TxStore(this.redisConnection);
+    this.txStore = new TxStore(redisConnection);
   }
 
   /**
    *  Saves pending transactions found on parity client node
    */
   listen() {
-
     const ws = new WebSocket(this.parityEndpoint);
 
-    console.log(`web socket${ws}`);
     ws.on('open', () => {
       console.log(`listen -> WS opening to ${this.parityEndpoint}`);
+
       // TODO try this again with a web3 requst
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
     ws.on('connection', (ws2, req) => {
       console.log(`listen -> WS connected.`);
-      const ip = req.connection.remoteAddress;
-    });
 
-    ws.on('message', (data) => {
+    }).on('message', (data) => {
       if (typeof data === 'string') {
         const parityResponse = JSON.parse(data);
+
         // eslint-disable-next-line no-prototype-builtins
         if (parityResponse.hasOwnProperty('method')) {
           const pendingTx = (<ParityResponse>parityResponse).params;
+
           if (pendingTx.result.length > 0) {
             console.log(`listen -> saving parity_pendingTransactions data(size=${data.length}) for total tx=${pendingTx.result.length}`);
 
             pendingTx.result.forEach((transaction) => {
               // Save the pending transaction in the store
-              store.save(transaction);
+              this.txStore.save(transaction);
+
               // if(this.verboseLogs) {
               //   console.log(transaction);
               // }
@@ -79,7 +80,6 @@ export default class PublisherNode {
    *  Emits stored pending transactions from the datastore to a websocket
    */
   emit() {
-    const store = new TxStore(this.redisConnection);
     // TODO pass in the hostname from a configuration file?
     const httpServer = http.createServer().listen(this.emitPort, '0.0.0.0');
 
@@ -92,7 +92,7 @@ export default class PublisherNode {
     ioListen.on('connection', (socket: Socket) => {
       console.log('emit -> ws connection success!');
 
-      store.load()
+      this.txStore.load()
         .subscribe({
           next(value: string) {
             socket.send(value);
@@ -115,8 +115,6 @@ export default class PublisherNode {
    *  Listens on a known port for connections
    */
   listenToListener() {
-    const store = new TxStore(this.redisConnection);
-
     const io = ioClient('http://0.0.0.0:10902/', {
       path: '/',
     });
@@ -139,7 +137,7 @@ export default class PublisherNode {
         if (this.verboseLogs) {
           console.log(`listen2 -> message received: ${tx.hash}`);
         }
-        store.save(tx);
+        this.txStore.save(tx);
       });
     }).on('close', () => {
       console.log('listen2 -> close');
