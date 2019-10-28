@@ -9,6 +9,7 @@ export default class RedisStore {
     this.redis = new ioredis(options);
 
     this.redis.on("error", error => {
+      // TODO improve error handling
       console.error(`redis connection error: ${error}`);
     });
   }
