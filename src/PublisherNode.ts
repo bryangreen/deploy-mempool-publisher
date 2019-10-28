@@ -6,7 +6,7 @@ import { IPendingTransaction } from './shared/IPendingTransaction';
 import RedisConnection from './shared/RedisConnection';
 import TxStore from './shared/TxStore';
 
-interface ParityResponse {
+interface IParityResponse {
   jsonrpc: string;
   method: string;
   params: { result: Array<IPendingTransaction> };
@@ -18,9 +18,11 @@ export default class PublisherNode {
   readonly verboseLogs = false;
 
   // TODO Add config fields to a configuration file so they can be tested for dev/stage/prod or multi-publisher
-  readonly emitPort = 10902;
+  readonly dataStoreHost = 'publisherdb'; // name of the docker redis container
   readonly dataStorePort = 6379;
-  readonly dataStoreHost = 'publisherdb';
+
+  readonly publishHost = '0.0.0.0';
+  readonly publishPort = 10902;
 
   txStore: TxStore;
 
@@ -37,18 +39,18 @@ export default class PublisherNode {
   /**
    *  Saves pending transactions found on parity client node
    */
-  pullTxs() {
+  extract() {
     const ws = new WebSocket(this.parityEndpoint);
 
     ws.on('open', () => {
-      console.log(`listen -> WS opening to ${this.parityEndpoint}`);
+      console.log(`extract -> WS opening to ${this.parityEndpoint}`);
 
       // TODO try this again with a web3 abstract subscription (web3 2.x)
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
     ws.on('connection', (ws2, req) => {
-      console.log(`listen -> WS connected to ${this.parityEndpoint}`);
+      console.log(`extract -> WS connected to ${this.parityEndpoint}`);
 
     }).on('message', (data) => {
       if (typeof data === 'string') {
@@ -56,10 +58,10 @@ export default class PublisherNode {
 
         // eslint-disable-next-line no-prototype-builtins
         if (parityResponse.hasOwnProperty('method')) {
-          const pendingTx = (<ParityResponse>parityResponse).params;
+          const pendingTx = (<IParityResponse>parityResponse).params;
 
           if (pendingTx.result.length > 0) {
-            console.log(`listen -> saving parity_pendingTransactions data(size=${data.length}) for total tx=${pendingTx.result.length}`);
+            console.log(`extract -> saving parity_pendingTransactions data(size=${data.length}) for total tx=${pendingTx.result.length}`);
 
             pendingTx.result.forEach((transaction) => {
               // Save the pending transaction in the store
@@ -76,40 +78,38 @@ export default class PublisherNode {
   }
 
   /**
-   *  Emits stored pending transactions from the datastore to a websocket.
+   *  Publishes stored pending transactions from the datastore to clients of a websocket.
    *  This is a websocket server.
    */
-  publishTxs() {
+  publish() {
     // TODO pass in the hostname from a configuration file?
-    const httpServer = http.createServer().listen(this.emitPort, '0.0.0.0');
+    const httpServer = http.createServer().listen(this.publishPort, this.publishHost);
 
     const ioListen = socketIo(httpServer, {
       path: '/',
     });
+    console.log(`publish -> serving tx via ws on port ${this.publishHost}:${this.publishPort}`);
 
-    console.log('emit -> initing stored tx');
     const that = this;
     ioListen.on('connection', (socket: Socket) => {
-      console.log('emit -> ws connection success!');
+      console.log('publish -> ws connection made');
 
       this.txStore.load()
         .subscribe({
           next(value: string) {
             socket.send(value);
+
             if (that.verboseLogs) {
-              console.log(`emit -> message sent: ${(<IPendingTransaction>JSON.parse(value)).hash}`);
+              console.log(`publish -> message sent: ${(<IPendingTransaction>JSON.parse(value)).hash}`);
             }
           },
+
           complete() {
             // The subscription should never finish.
-            console.log('emit -> closed subscription');
+            console.log('publish -> closed subscription');
           },
         });
     });
-
-    // TODO gracefully and properly handle disconnects from redis (auto-reconnect?)
-    // .on("disconnect", ());
-
   }
 
 }
