@@ -6,13 +6,17 @@ import RedisConnection from './RedisConnection';
 import { IPendingTransaction } from './IPendingTransaction';
 
 export default class TxStore {
-  static keyPrefix = 'pendingTx:';
+  static pendingKeyPrefix = 'pendingtx:';
+  static streamedKeyPrefix = 'sent:';
 
   readonly verboseLogs = false;
 
+  public txReceived = 0;
+  public txSaved = 0;
+
   redis: ioredis.Redis;
 
-  constructor(redisStore: RedisConnection, deleteStreamedKeys = false) {
+  constructor(redisStore: RedisConnection) {
     this.redis = redisStore.redis;
   }
 
@@ -21,26 +25,52 @@ export default class TxStore {
   }
 
   /**
+   * Save only new keys to redis in the form 'key prefix' + tx hash
+   * The value will be a JSON string of the transaction details
+   * @param transaction
+   */
+  public saveNew(transaction: IPendingTransaction) {
+    const pendingKeyName = TxStore.pendingKeyPrefix + transaction.hash;
+    this.txReceived += 1;
+
+    this.redis.exists(TxStore.streamedKeyPrefix + pendingKeyName).then(exists => {
+      if (!exists) {
+        this.saveTransactionByKey(pendingKeyName, transaction);
+      } else {
+        if (this.verboseLogs) {
+          this.log(`tx already saved/sent: ${transaction.hash}`);
+        }
+      }
+    });
+  }
+
+  /**
    * Save keys to redis in the form 'key prefix' + tx hash
    * The value will be a JSON string of the transaction details
    * @param transaction
    */
   public save(transaction: IPendingTransaction) {
-    this.redis.set(TxStore.keyPrefix + transaction.hash, JSON.stringify(transaction))
+    this.txReceived += 1;
+    this.saveTransactionByKey(TxStore.pendingKeyPrefix + transaction.hash, transaction);
+  }
+
+  private saveTransactionByKey(key: string, transaction: IPendingTransaction) {
+    this.redis.set(key, JSON.stringify(transaction))
       .then(result => {
-        // added
+        // TODO handle when their result is not OK
         if (this.verboseLogs) {
-          this.log(`saved tx result: ${result} hash: ${transaction.hash}`);
+          this.log(`saved tx with result:${result} hash:${transaction.hash}`);
         }
+        this.txSaved += 1;
       })
       .catch(reason => {
-        console.error(`could not add to redis = ${reason}`);
+        console.error(`store -> could not add to redis ${reason}`);
       });
   }
 
-  public load(): Observable<string> {
+  public load(uniqueAfterLoad = false): Observable<string> {
     return new Observable<string>(subscriber => {
-      this.createDataStream(subscriber);
+      this.createDataStream(subscriber, uniqueAfterLoad);
     });
   }
 
@@ -50,13 +80,13 @@ export default class TxStore {
    * If the pub/sub model could dedup keys then a subscription to redis would work...
    * @param subscriber
    */
-  createDataStream(subscriber: Subscriber<string>) {
+  createDataStream(subscriber: Subscriber<string>, uniqueAfterLoad: boolean) {
     let stream = this.getKeyStream();
 
-    this.attachDataEvent(subscriber, stream);
+    this.attachDataEvent(subscriber, stream, uniqueAfterLoad);
     stream.on("end", () => {
       // Create a new data stream as the previous one has stopped.
-      this.createDataStream(subscriber);
+      this.createDataStream(subscriber, uniqueAfterLoad);
     });
   }
 
@@ -65,15 +95,12 @@ export default class TxStore {
    */
   getKeyStream() {
     return this.redis.scanStream({
-      match: TxStore.keyPrefix + "*"
+      match: TxStore.pendingKeyPrefix + "*"
     });
   }
 
-  attachDataEvent(subscriber: Subscriber<string>, stream: Readable) {
+  attachDataEvent(subscriber: Subscriber<string>, stream: Readable, uniqueAfterLoad: boolean) {
     stream.on("data", (keys: KeyType[]) => {
-      if (this.verboseLogs) {
-        this.log("Starting scan for matching keys");
-      }
       stream.pause();
 
       if (keys.length > 0) {
@@ -84,13 +111,13 @@ export default class TxStore {
               subscriber.next(value);
 
               if (this.verboseLogs) {
-                this.log(`subscribe post ${value}`);
+                this.log(`subscribe post ${key}`);
               }
             }
           });
         });
-        if (this.deleteStreamedKeys) {
-          this.deleteStreamedKeys(keys);
+        if (uniqueAfterLoad) {
+          this.renameStreamedKeys(keys);
         }
       }
       stream.resume();
@@ -104,17 +131,16 @@ export default class TxStore {
 
   }
 
-  private deleteStreamedKeys(keys: KeyType[]) {
-
+  private renameStreamedKeys(keys: KeyType[]) {
     const pipeline = this.redis.pipeline();
     keys.forEach(key => {
       if (this.verboseLogs) {
-        this.log(`deleting key ${key}`);
+        this.log(`rename streamed key ${key}`);
       }
-       pipeline.del(key);
+      pipeline.rename(key, TxStore.streamedKeyPrefix + key);
     });
 
-    // handle return here
+    // TODO handle return value of exec
     pipeline.exec();
   }
 }

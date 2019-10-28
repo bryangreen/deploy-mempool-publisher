@@ -65,12 +65,13 @@ export default class PublisherNode {
 
             pendingTx.result.forEach((transaction) => {
               // Save the pending transaction in the store
-              this.txStore.save(transaction);
+              this.txStore.saveNew(transaction);
 
               if (this.verboseLogs) {
-                console.log(transaction);
+                console.log(`extract -> received tx with hash=${transaction.hash}`);
               }
             });
+            console.log(`extract -> tx received ${this.txStore.txReceived}, tx saved ~${this.txStore.txSaved}`)
           }
         }
       }
@@ -94,7 +95,7 @@ export default class PublisherNode {
     ioListen.on('connection', (socket: Socket) => {
       console.log(`publish -> ws connection made from ${socket.conn.remoteAddress}`);
 
-      this.txStore.load()
+      this.txStore.load(true)
         .subscribe({
           next(value: string) {
             socket.send(value);
