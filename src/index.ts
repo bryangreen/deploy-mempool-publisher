@@ -1,8 +1,5 @@
 import PublisherNode from './PublisherNode';
 
-// TODO pass this in - probably via config file but could be env var
-const parityEndpoint = 'wss://paritymainne1570826636862.nodes.deploy.radar.tech/?apikey=a0c1c14129f2f8c4463a39ab882b41b2e3e0c4dddae864a4';
-
-const publisherNode = new PublisherNode(parityEndpoint);
+const publisherNode = new PublisherNode();
 publisherNode.extract();
 publisherNode.publish();

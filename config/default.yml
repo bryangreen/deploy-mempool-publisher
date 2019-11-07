@@ -1,0 +1,16 @@
+log:
+  level: false
+  stats: false
+
+extract:
+  # Add an endpoint here - or override by environment
+  endpoint: ''
+
+store:
+  host: 'publisherdb'
+  port: 6379
+
+publish:
+  host: '0.0.0.0'
+  port: 10902
+

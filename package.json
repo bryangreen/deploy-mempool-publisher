@@ -17,10 +17,12 @@
   },
   "homepage": "https://github.com/bryangreen/deploy-mempool-publisher#readme",
   "devDependencies": {
+    "@types/config": "^0.0.35",
     "@types/ioredis": "^4.0.18",
     "@types/socket.io": "^2.1.4",
     "@types/socket.io-client": "^1.4.32",
     "@types/ws": "^6.0.3",
+    "config": "^3.2.4",
     "rxjs": "^6.5.3",
     "tslint": "^5.20.0",
     "typescript": "^3.6.4"

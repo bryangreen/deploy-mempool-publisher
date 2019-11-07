@@ -1,3 +1,4 @@
+import config from 'config';
 import http from 'http';
 import socketIo, { Socket } from 'socket.io';
 import WebSocket from 'ws';
@@ -14,26 +15,17 @@ interface IParityResponse {
 }
 
 export default class PublisherNode {
-  // TODO Add log levels here and control via configuration file.
-  readonly verboseLogs = false;
-  readonly showStats = false;
-
-  // TODO Add config fields to a configuration file so they can be tested for dev/stage/prod or multi-publisher
-  readonly dataStoreHost = 'publisherdb'; // name of the docker redis container
-  readonly dataStorePort = 6379;
-
-  readonly publishHost = '0.0.0.0';
-  readonly publishPort = 10902;
+  readonly verboseLogs: boolean = config.get('log.level');
+  readonly showStats: boolean = config.get('log.stats');
 
   txStore: TxStore;
 
-  constructor(public parityEndpoint: string) {
+  constructor() {
     const redisConnection = new RedisConnection({
-      port: this.dataStorePort,
-      host: this.dataStoreHost
+      port: config.get('store.port'),
+      host: config.get('store.host')
     });
 
-    // TODO may want to turn deletion of keys back on or improve streaming logic to prevent dups
     this.txStore = new TxStore(redisConnection);
   }
 
@@ -41,19 +33,22 @@ export default class PublisherNode {
    *  Saves pending transactions found on parity client node
    */
   extract() {
-    const ws = new WebSocket(this.parityEndpoint);
+    const endpoint: string = config.get('extract.endpoint');
+
+    const ws = new WebSocket(endpoint);
 
     ws.on('open', () => {
-      console.log(`extract -> WS opening to ${this.parityEndpoint}`);
+      console.log(`extract -> WS opening to ${endpoint}`);
 
       // TODO try this again with a web3 abstract subscription (web3 2.x)
       ws.send('{"method":"parity_subscribe","params":["parity_pendingTransactions"],"id":1,"jsonrpc":"2.0"}');
     });
 
     ws.on('connection', (ws2, req) => {
-      console.log(`extract -> WS connected to ${this.parityEndpoint}`);
+      console.log(`extract -> WS connected to ${endpoint}`);
 
     }).on('message', (data) => {
+      console.log('extract -> message received' + data);
       if (typeof data === 'string') {
         const parityResponse = JSON.parse(data);
 
@@ -72,7 +67,7 @@ export default class PublisherNode {
                 console.log(`extract -> received tx with hash=${transaction.hash}`);
               }
             });
-            if(this.showStats) {
+            if (this.showStats) {
               console.log(`extract -> tx received ${this.txStore.txReceived}, tx saved ~${this.txStore.txSaved}`)
             }
           }
@@ -86,13 +81,16 @@ export default class PublisherNode {
    *  This is a websocket server.
    */
   publish() {
+    const host: string = config.get('publish.host');
+    const port: number = config.get('publish.port');
+
     // TODO pass in the hostname from a configuration file?
-    const httpServer = http.createServer().listen(this.publishPort, this.publishHost);
+    const httpServer = http.createServer().listen(port, host);
 
     const ioListen = socketIo(httpServer, {
       path: '/',
     });
-    console.log(`publish -> serving tx via ws at ${this.publishHost}:${this.publishPort}`);
+    console.log(`publish -> serving tx via ws at ${host}:${port}`);
 
     const that = this;
     ioListen.on('connection', (socket: Socket) => {
