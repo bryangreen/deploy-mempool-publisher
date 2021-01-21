@@ -30,7 +30,7 @@
   "dependencies": {
     "config-yml": "^0.10.3",
     "ioredis": "^4.14.1",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.4.0",
     "socket.io-client": "^2.3.0",
     "ws": "^7.2.0"
   }
